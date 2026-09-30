@@ -1,0 +1,7 @@
+.git
+.github
+**/target
+**/node_modules
+frontend/coverage
+frontend/dist
+docs/screenshots/*.png

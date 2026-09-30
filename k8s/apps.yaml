@@ -1,0 +1,354 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-config
+  namespace: hotel-reservation
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hotel
+  SPRING_DATASOURCE_USERNAME: hotel_app
+  CATALOG_SERVICE_URL: http://hotel-service:8080
+  RATE_SERVICE_URL: http://rate-service:8080
+  PAYMENT_SERVICE_URL: http://payment-service:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-service
+  namespace: hotel-reservation
+spec:
+  selector:
+    app: hotel-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-service
+  namespace: hotel-reservation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hotel-service
+  template:
+    metadata:
+      labels:
+        app: hotel-service
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: hotel-service
+          image: hotel-system/hotel-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: hotel-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: postgres-password
+            - name: ADMIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: admin-api-key
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rate-service
+  namespace: hotel-reservation
+spec:
+  selector:
+    app: rate-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rate-service
+  namespace: hotel-reservation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rate-service
+  template:
+    metadata:
+      labels:
+        app: rate-service
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: rate-service
+          image: hotel-system/rate-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: hotel-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: postgres-password
+            - name: ADMIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: admin-api-key
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: hotel-reservation
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: hotel-reservation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: payment-service
+          image: hotel-system/payment-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: hotel-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: postgres-password
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reservation-service
+  namespace: hotel-reservation
+spec:
+  selector:
+    app: reservation-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reservation-service
+  namespace: hotel-reservation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reservation-service
+  template:
+    metadata:
+      labels:
+        app: reservation-service
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: reservation-service
+          image: hotel-system/reservation-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: hotel-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: postgres-password
+            - name: ADMIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-secrets
+                  key: admin-api-key
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+              ephemeral-storage: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-web
+  namespace: hotel-reservation
+spec:
+  type: NodePort
+  selector:
+    app: hotel-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-web
+  namespace: hotel-reservation
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hotel-web
+  template:
+    metadata:
+      labels:
+        app: hotel-web
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: hotel-web
+          image: hotel-system/web:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+              ephemeral-storage: 16Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+              ephemeral-storage: 128Mi

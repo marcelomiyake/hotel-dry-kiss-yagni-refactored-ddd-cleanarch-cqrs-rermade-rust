@@ -1,0 +1,7 @@
+# Stays — Lisbon hotel reservations
+
+> Stays helps travelers compare Lisbon hotels, live room availability, nightly rates, and reservations.
+
+## Website
+
+- [Stays home](/): Search and compare Lisbon hotel stays.
