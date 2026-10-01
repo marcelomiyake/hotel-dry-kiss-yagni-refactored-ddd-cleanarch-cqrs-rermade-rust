@@ -91,28 +91,28 @@ The flow starts when a guest selects a stay and opens its details. It records th
 | Harness | Codex · GPT-6 Luna · max effort |
 | Rust tests and line coverage | 15 passed · 91.39% |
 | Frontend tests and line coverage | 15 passed · 92.38% |
-| SonarQube Cloud | 0 active issues across the project · 1 historical issue closed · quality gate passed · 91.4% overall coverage · 92.2% new-code coverage |
+| SonarQube Cloud (commit `64f22ee`) | 0 active issues across the project · 1 historical issue closed · quality gate passed · 91.4% overall coverage · 92.2% new-code coverage |
 | Lighthouse desktop | 100 performance · 100 accessibility · 100 best practices · 100 SEO |
-| Files | 2 created · 9 changed · 0 deleted (11 total) |
-| Diff size | 592 insertions · 8 deletions |
+| Feature commit files | 2 created · 9 changed · 0 deleted (11 total) |
+| Feature commit diff | 592 insertions · 8 deletions |
 | Feature LOC | 500 nonblank source and test lines added · 6 removed · 494 net |
 
 LOC counts use nonblank source and test lines from the staged diff, excluding the README, generated output, dependencies, and configuration. The implementation adds the reservation analytics schema and event adapter, updates the Rust reservation/payment boundary and React gateway, and covers event validation, abandonment classification, and paid completion. The issue search found no active project issues; one previously closed historical issue remains in SonarQube's issue history.
 
 ### Session token and cost estimate
 
-The Codex session ledger started with zero session and cache tokens, as stated in the request. The counts below are from the latest local session usage record at 2026-10-01 16:49:32 UTC, before this table update, commit, push, and final response. The harness reports total input tokens with cached input included; uncached input is total input minus cached input. Reasoning tokens are a subset of output tokens and are not charged again.
+The Codex session ledger started with zero session and cache tokens, as stated in the request. The counts below are from the latest local session usage record at 2026-10-01 16:57:41 UTC, after the post-push Sonar scan and before this README update, its follow-up commit and push, and the final response. The harness reports total input tokens with cached input included; uncached input is total input minus cached input. Reasoning tokens are a subset of output tokens and are not charged again.
 
 The estimate uses the Standard GPT-6 Luna prices in the official [OpenAI ChatGPT Work and Codex rate card](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing): $0.10 per million uncached input tokens, $0.01 per million cached input tokens, and $0.50 per million output tokens. OpenAI documents that reasoning tokens are billed as output tokens in its [token usage guide](https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count). This is a token-only estimate; workspace terms and other feature charges can change the billed amount.
 
 | Token measure | Count |
 | --- | ---: |
-| Input tokens (total, cache included) | 9,491,328 |
-| Input tokens (uncached) | 371,328 |
-| Cached input tokens | 9,120,000 |
-| Reasoning tokens (included in output) | 55,883 |
-| Output tokens | 74,885 |
-| Estimated model-token cost | **$0.1658 USD** |
+| Input tokens (total, cache included) | 15,295,531 |
+| Input tokens (uncached) | 404,267 |
+| Cached input tokens | 14,891,264 |
+| Reasoning tokens (included in output) | 60,303 |
+| Output tokens | 82,074 |
+| Estimated model-token cost | **$0.2304 USD** |
 
 ## Development and quality checks
 
