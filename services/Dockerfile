@@ -1,14 +1,13 @@
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM rust:1.98-slim AS build
 WORKDIR /workspace
-COPY pom.xml ./
-COPY services ./services
-RUN mvn -q -Dmaven.test.skip=true package
-ARG SERVICE
+COPY services/backend/Cargo.toml services/backend/Cargo.lock services/backend/
+COPY services/backend/schema services/backend/schema
+COPY services/backend/src services/backend/src
+RUN cargo build --manifest-path services/backend/Cargo.toml --release
 
-FROM eclipse-temurin:25-jre
+FROM debian:bookworm-slim
 WORKDIR /app
-ARG SERVICE
-COPY --from=build /workspace/services/${SERVICE}/target/${SERVICE}-1.0.0-SNAPSHOT.jar /app/app.jar
+COPY --from=build --chown=10001:10001 /workspace/services/backend/target/release/stays-backend /app/stays-backend
 USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=70.0", "-jar", "/app/app.jar"]
+ENTRYPOINT ["/app/stays-backend"]

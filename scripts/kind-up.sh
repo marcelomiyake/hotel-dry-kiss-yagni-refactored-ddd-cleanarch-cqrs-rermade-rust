@@ -26,24 +26,15 @@ kubectl -n "$namespace" create secret generic hotel-secrets \
   --from-literal=admin-api-key="$admin_key" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-docker build --build-arg SERVICE=hotel-service -f services/Dockerfile -t hotel-system/hotel-service:local .
-docker build --build-arg SERVICE=rate-service -f services/Dockerfile -t hotel-system/rate-service:local .
-docker build --build-arg SERVICE=payment-service -f services/Dockerfile -t hotel-system/payment-service:local .
-docker build --build-arg SERVICE=reservation-service -f services/Dockerfile -t hotel-system/reservation-service:local .
+docker build -f services/Dockerfile -t hotel-system/backend:local .
 docker build -f frontend/Dockerfile -t hotel-system/web:local .
 
-kind load docker-image hotel-system/hotel-service:local hotel-system/rate-service:local \
-  hotel-system/payment-service:local hotel-system/reservation-service:local hotel-system/web:local \
-  --name "$cluster_name"
+kind load docker-image hotel-system/backend:local hotel-system/web:local --name "$cluster_name"
 kubectl apply -n "$namespace" -f k8s/postgres.yaml
 kubectl -n "$namespace" rollout status statefulset/postgres --timeout=180s
 kubectl apply -n "$namespace" -f k8s/apps.yaml
-kubectl -n "$namespace" rollout restart deployment/hotel-service deployment/rate-service \
-  deployment/payment-service deployment/reservation-service deployment/hotel-web
-kubectl -n "$namespace" rollout status deployment/hotel-service --timeout=180s
-kubectl -n "$namespace" rollout status deployment/rate-service --timeout=180s
-kubectl -n "$namespace" rollout status deployment/payment-service --timeout=180s
-kubectl -n "$namespace" rollout status deployment/reservation-service --timeout=180s
+kubectl -n "$namespace" rollout restart deployment/hotel-backend deployment/hotel-web
+kubectl -n "$namespace" rollout status deployment/hotel-backend --timeout=180s
 kubectl -n "$namespace" rollout status deployment/hotel-web --timeout=180s
 
 printf 'Hotel reservation is available at http://localhost:8080\n'
