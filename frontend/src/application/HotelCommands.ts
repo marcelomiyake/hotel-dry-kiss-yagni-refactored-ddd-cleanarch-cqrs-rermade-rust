@@ -18,8 +18,26 @@ export interface ChangeInventoryCommand {
   readonly totalInventory: number;
 }
 
+export type ReservationJourneyScreen =
+  | "search"
+  | "results"
+  | "details"
+  | "checkout"
+  | "confirmation"
+  | "bookings"
+  | "staff";
+
+export interface ReservationJourneyEvent {
+  readonly journeyId: string;
+  readonly sequence: number;
+  readonly eventType: "started" | "screen_viewed" | "completed";
+  readonly screen: ReservationJourneyScreen;
+}
+
 export interface HotelCommands {
   createReservation(command: CreateReservationCommand): Promise<Reservation>;
+
+  recordReservationJourneyEvent(event: ReservationJourneyEvent): Promise<void>;
 
   cancelReservation(id: string): Promise<Reservation>;
 

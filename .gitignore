@@ -27,6 +27,7 @@ target
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+/.scannerwork/
 
 # Local Kind credentials
 .kind-db-password

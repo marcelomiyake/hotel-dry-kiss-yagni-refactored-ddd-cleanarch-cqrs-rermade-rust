@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type RefObject, type SubmitEvent } from "react";
-import type { HotelCommands } from "../application/HotelCommands";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject, type SubmitEvent } from "react";
+import type { HotelCommands, ReservationJourneyEvent } from "../application/HotelCommands";
 import type { HotelQueries } from "../application/HotelQueries";
 import { hasValidGuestDetails, isValidEmail, validateSearch } from "../domain/booking";
 import { addDays, formatDate, formatMoney, getNights, localDateOffset } from "../date";
@@ -84,7 +84,24 @@ export function HotelApp({ queries, commands }: HotelAppProps) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
   const cancelDialogRef = useRef<HTMLDialogElement>(null);
   const bookingIdRef = useRef("");
+  const journeyIdRef = useRef<string | null>(null);
+  const journeySequenceRef = useRef(0);
+  const lastTrackedScreenRef = useRef<Page | null>(null);
+  const pendingJourneyEventsRef = useRef(Promise.resolve());
   const previousViewRef = useRef(view);
+
+  const recordJourneyEvent = useCallback((
+    journeyId: string,
+    eventType: ReservationJourneyEvent["eventType"],
+    screen: Page,
+  ) => {
+    const sequence = eventType === "started" ? 1 : journeySequenceRef.current + 1;
+    journeySequenceRef.current = sequence;
+    const event: ReservationJourneyEvent = { journeyId, sequence, eventType, screen };
+    pendingJourneyEventsRef.current = pendingJourneyEventsRef.current
+      .then(() => commands.recordReservationJourneyEvent(event))
+      .catch(() => undefined);
+  }, [commands]);
 
   const orderedStays = useMemo(() => {
     const stays = [...(searchResult?.stays ?? [])];
@@ -104,8 +121,17 @@ export function HotelApp({ queries, commands }: HotelAppProps) {
     if (previousViewRef.current !== view) {
       previousViewRef.current = view;
       pageHeadingRef.current?.focus();
+      if (journeyIdRef.current && lastTrackedScreenRef.current !== view) {
+        const eventType = view === "confirmation" ? "completed" : "screen_viewed";
+        recordJourneyEvent(journeyIdRef.current, eventType, view);
+        lastTrackedScreenRef.current = view;
+        if (view === "confirmation") {
+          journeyIdRef.current = null;
+          bookingIdRef.current = "";
+        }
+      }
     }
-  }, [view]);
+  }, [recordJourneyEvent, view]);
 
   useEffect(() => {
     const dialog = cancelDialogRef.current;
@@ -161,11 +187,16 @@ export function HotelApp({ queries, commands }: HotelAppProps) {
   function selectStay(stay: SearchStay) {
     setActiveStayId(stay.id);
     setSelectedRoomId(stay.rooms[0]?.id ?? "");
+    const journeyId = crypto.randomUUID();
+    journeyIdRef.current = journeyId;
+    bookingIdRef.current = journeyId;
+    journeySequenceRef.current = 1;
+    lastTrackedScreenRef.current = "details";
+    recordJourneyEvent(journeyId, "started", "details");
     setView("details");
   }
 
   function continueToCheckout() {
-    bookingIdRef.current = crypto.randomUUID();
     setCheckoutError("");
     setCheckoutAttempted(false);
     setPolicyAccepted(false);

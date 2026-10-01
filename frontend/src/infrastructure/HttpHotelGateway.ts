@@ -1,4 +1,9 @@
-import type { HotelCommands, CreateReservationCommand, ChangeInventoryCommand } from "../application/HotelCommands";
+import type {
+  HotelCommands,
+  CreateReservationCommand,
+  ChangeInventoryCommand,
+  ReservationJourneyEvent,
+} from "../application/HotelCommands";
 import type { HotelQueries, SearchStaysQuery } from "../application/HotelQueries";
 import { api } from "../api";
 import type { Hotel, Reservation, RoomTypeDraft, SearchResponse } from "../types";
@@ -26,6 +31,13 @@ export class HttpHotelGateway implements HotelQueries, HotelCommands {
     return api<Reservation>("/api/reservations", {
       method: "POST",
       body: JSON.stringify(command),
+    });
+  }
+
+  recordReservationJourneyEvent(event: ReservationJourneyEvent): Promise<void> {
+    return api<void>("/api/reservation-journeys/events", {
+      method: "POST",
+      body: JSON.stringify(event),
     });
   }
 

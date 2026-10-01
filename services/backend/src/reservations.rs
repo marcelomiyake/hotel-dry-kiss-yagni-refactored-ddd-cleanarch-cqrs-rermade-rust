@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     ApiError, AppState, Hotel, InventoryDraft, PaymentRequest, Reservation, ReservationRequest,
-    ReservationStatus, RoomOffer, SearchResponse, SearchStay, hotel, payments, rates,
+    ReservationStatus, RoomOffer, SearchResponse, SearchStay, hotel, journeys, payments, rates,
 };
 
 #[derive(Deserialize)]
@@ -274,6 +274,11 @@ pub(crate) async fn book_reservation(
     .bind(request.reservation_id)
     .execute(pool)
     .await?;
+    if let Err(error) =
+        journeys::mark_paid_reservation_completed(pool, request.reservation_id).await
+    {
+        tracing::warn!(reservation_id = %request.reservation_id, error = ?error, "could not mark reservation journey completed");
+    }
     reservation = find_reservation(pool, request.reservation_id).await?;
     Ok(reservation)
 }

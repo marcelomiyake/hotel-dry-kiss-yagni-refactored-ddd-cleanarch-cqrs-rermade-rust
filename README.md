@@ -48,6 +48,7 @@ Admin endpoints require the `X-Admin-Key` header. Request and response JSON fiel
 | `GET /api/rates/quote?roomTypeId=…&checkIn=…&checkOut=…` | Quote every night in a stay |
 | `POST /api/payments` | Charge a simulated payment |
 | `PUT /api/payments/{reservationId}/refund` | Refund a simulated payment |
+| `POST /api/reservation-journeys/events` | Record a privacy-minimal reservation journey event |
 | `POST /api/reservations` | Create or replay a reservation |
 | `GET /api/reservations?email=…` | Read a guest’s reservation history |
 | `GET /api/reservations/{id}` | Read one reservation |
@@ -59,6 +60,59 @@ Admin endpoints require the `X-Admin-Key` header. Request and response JSON fiel
 | `PUT /api/admin/inventory` | Update future inventory |
 | `PUT /api/admin/rates` | Update one nightly rate |
 | `POST /api/admin/rates/schedule` | Create a nightly rate schedule |
+
+## Reservation abandonment tracking
+
+The frontend starts a journey when a guest opens a stay's details, then records screen transitions with a random journey UUID and an increasing event sequence. The UUID is reused as the reservation ID if the guest completes the booking. The event tables store only the UUID, screen, event type, sequence, and server timestamp; they do not store guest names, email addresses, or browser identifiers.
+
+`reservation_analytics.journeys` keeps the latest screen and activity time, while `reservation_analytics.journey_events` keeps the ordered event history. A journey with no activity for 30 minutes and no successful payment appears as `ABANDONED` in the `reservation_analytics.journey_outcomes` view. Paid bookings appear as `COMPLETED`; failed payments are classified separately. The view calculates status at query time, so no background job or administrative frontend is required.
+
+Query the journeys that have become abandoned and see where they stopped:
+
+```sql
+SELECT journey_id, last_screen, started_at, last_activity_at, abandoned_at
+FROM reservation_analytics.journey_outcomes
+WHERE status = 'ABANDONED'
+ORDER BY abandoned_at DESC;
+```
+
+## Reservation abandonment feature analysis and statistics
+
+### Request analyzed
+
+> I want you to implement a new feature that identifies when a user starts a reservation but abandons it before paying. I want us to track which screen the user stopped at before abandoning the reservation. No administrative frontend implementation is needed; I want the data stored in the database (it doesn't need to be the same existing relational database) so we can use it later to improve the system. So it's not necessary to change the frontend features for the user, but you can change the structure to track user events. In this case, if you change it, the frontend should have a perfect Lighthouse grade and good SEO META in 1 Click. Complete this job with zero SonarQube issues (not only new, but zero in total) and test coverage above 80%. I also want to add a new section to README.md with statistics for this new feature. Include the number of changes (how much was deleted, created, changed, etc.), an analysis that includes this prompt, the harness used here (Codex, GPT-6 Luna with max effort), and the token costs from the sessions to complete this task (input tokens, cache tokens, reasoning tokens, output tokens), plus LOC. The cache and sessions were empty just before starting this session. Consult the OpenAI official documentation for token prices to estimate total costs. Commit following https://www.conventionalcommits.org/and push to GitHub after all.
+
+The flow starts when a guest selects a stay and opens its details. It records the current screen on later page transitions, treats 30 minutes without a transition as abandonment, and confirms completion from the payment-backed reservation state. This captures where an unpaid journey stopped without changing the reservation screens or adding an admin UI.
+
+### Verification and change counts
+
+| Measure | Result |
+| --- | --- |
+| Harness | Codex · GPT-6 Luna · max effort |
+| Rust tests and line coverage | 15 passed · 91.39% |
+| Frontend tests and line coverage | 15 passed · 92.38% |
+| SonarQube Cloud | 0 active issues across the project · 1 historical issue closed · quality gate passed · 91.4% overall coverage · 92.2% new-code coverage |
+| Lighthouse desktop | 100 performance · 100 accessibility · 100 best practices · 100 SEO |
+| Files | 2 created · 9 changed · 0 deleted (11 total) |
+| Diff size | 592 insertions · 8 deletions |
+| Feature LOC | 500 nonblank source and test lines added · 6 removed · 494 net |
+
+LOC counts use nonblank source and test lines from the staged diff, excluding the README, generated output, dependencies, and configuration. The implementation adds the reservation analytics schema and event adapter, updates the Rust reservation/payment boundary and React gateway, and covers event validation, abandonment classification, and paid completion. The issue search found no active project issues; one previously closed historical issue remains in SonarQube's issue history.
+
+### Session token and cost estimate
+
+The Codex session ledger started with zero session and cache tokens, as stated in the request. The counts below are from the latest local session usage record at 2026-10-01 16:49:32 UTC, before this table update, commit, push, and final response. The harness reports total input tokens with cached input included; uncached input is total input minus cached input. Reasoning tokens are a subset of output tokens and are not charged again.
+
+The estimate uses the Standard GPT-6 Luna prices in the official [OpenAI ChatGPT Work and Codex rate card](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing): $0.10 per million uncached input tokens, $0.01 per million cached input tokens, and $0.50 per million output tokens. OpenAI documents that reasoning tokens are billed as output tokens in its [token usage guide](https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count). This is a token-only estimate; workspace terms and other feature charges can change the billed amount.
+
+| Token measure | Count |
+| --- | ---: |
+| Input tokens (total, cache included) | 9,491,328 |
+| Input tokens (uncached) | 371,328 |
+| Cached input tokens | 9,120,000 |
+| Reasoning tokens (included in output) | 55,883 |
+| Output tokens | 74,885 |
+| Estimated model-token cost | **$0.1658 USD** |
 
 ## Development and quality checks
 
@@ -82,13 +136,13 @@ DATABASE_URL=postgres://hotel_app:hotel_local@localhost:5432/hotel_test \
   cargo llvm-cov --all-targets
 ```
 
-The verified frontend suite has **15 passing tests** and **92.15% line coverage**. The Rust suite has **12 passing tests** (11 unit tests and one API contract test) and **91.02% line coverage**.
+The verified frontend suite has **15 passing tests** and **92.38% line coverage**. The Rust suite has **15 passing tests** (14 unit tests and one API contract test) and **91.39% line coverage**.
 
 ### SonarQube Cloud
 
 The public [Hotel Reservation System – Rust Backend SonarQube Cloud project](https://sonarcloud.io/project/overview?id=marcelomiyake_hotel-dry-kiss-yagni-refactored-ddd-cleanarch-cqrs-rermade-rust) uses scanner-based analysis; Automatic Analysis is disabled for this project. The scan ran the Rust Enterprise sensor, imported Rust coverage in Sonar’s generic coverage format, imported Clippy findings in the generic external issues format, and imported frontend LCOV coverage. See Sonar’s [Rust analysis documentation](https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/languages/rust), [generic issue import format](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/importing-external-issues/generic-issue-data), and [coverage import guide](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/test-coverage/overview).
 
-The latest verified analysis reports **0 open issues**, **91.1% overall coverage**, and a **passed quality gate**. Strict Clippy completed without warnings.
+The latest verified analysis reports **0 open issues across the project**, **91.4% overall coverage**, **92.2% new-code coverage**, and a **passed quality gate**. The project has one historical issue in the closed state. Strict Clippy completed without warnings.
 
 To prepare the Rust reports for a later analysis, first run coverage and Clippy from `services/backend` with `DATABASE_URL` set to a disposable database:
 

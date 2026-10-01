@@ -105,7 +105,10 @@ describe("hotel reservation experience", () => {
   it("validates a search and completes booking, history, and cancellation", async () => {
     const fetchMock = setFetch(
       response(searchResult),
+      response(null, 204),
+      response(null, 204),
       response(booking),
+      response(null, 204),
       response([booking]),
       response({ ...booking, status: "CANCELLED" }),
     );
@@ -135,6 +138,14 @@ describe("hotel reservation experience", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/reservations", expect.objectContaining({
       method: "POST",
       body: expect.stringContaining('"guestEmail":"alex@example.com"'),
+    }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/reservation-journeys/events", expect.objectContaining({
+      method: "POST",
+      body: expect.stringContaining('"eventType":"started"'),
+    }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/reservation-journeys/events", expect.objectContaining({
+      method: "POST",
+      body: expect.stringContaining('"screen":"checkout"'),
     }));
 
     fireEvent.click(screen.getByRole("button", { name: /View my bookings/ }));

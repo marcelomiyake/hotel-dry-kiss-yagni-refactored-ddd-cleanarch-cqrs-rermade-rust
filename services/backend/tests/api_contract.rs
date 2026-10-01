@@ -192,6 +192,29 @@ async fn preserves_routes_json_fields_booking_rules_and_admin_security() {
     assert_eq!(search["checkIn"], check_in.to_string());
 
     let reservation_id = Uuid::new_v4();
+    let (status, _) = call(
+        &router,
+        Method::POST,
+        "/api/reservation-journeys/events",
+        Some(json!({
+            "journeyId":reservation_id, "sequence":1, "eventType":"started", "screen":"details"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = call(
+        &router,
+        Method::POST,
+        "/api/reservation-journeys/events",
+        Some(json!({
+            "journeyId":reservation_id, "sequence":2, "eventType":"screen_viewed", "screen":"checkout"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
     let booking = json!({
         "reservationId":reservation_id, "hotelId":hotel_id, "roomTypeId":room_id,
         "checkIn":check_in, "checkOut":check_out, "rooms":2, "guests":2,
@@ -210,6 +233,94 @@ async fn preserves_routes_json_fields_booking_rules_and_admin_security() {
     assert_eq!(reservation["guestEmail"], "guest@example.com");
     assert_eq!(reservation["total"], quote["total"].as_f64().unwrap() * 2.0);
     assert!(reservation["paymentId"].is_string());
+    let (status, _) = call(
+        &router,
+        Method::POST,
+        "/api/reservation-journeys/events",
+        Some(json!({
+            "journeyId":reservation_id, "sequence":3, "eventType":"completed", "screen":"confirmation"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let outcome: (String, String) = sqlx::query_as(
+        "SELECT status,last_screen FROM reservation_analytics.journey_outcomes WHERE journey_id=$1",
+    )
+    .bind(reservation_id)
+    .fetch_one(&pool)
+    .await
+    .expect("paid reservation has an analytics outcome");
+    assert_eq!(outcome, ("COMPLETED".to_owned(), "confirmation".to_owned()));
+
+    let abandoned_journey_id = Uuid::new_v4();
+    for event in [
+        json!({
+            "journeyId":abandoned_journey_id, "sequence":1, "eventType":"started", "screen":"details"
+        }),
+        json!({
+            "journeyId":abandoned_journey_id, "sequence":2, "eventType":"screen_viewed", "screen":"checkout"
+        }),
+    ] {
+        let (status, _) = call(
+            &router,
+            Method::POST,
+            "/api/reservation-journeys/events",
+            Some(event),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+    }
+    sqlx::query(
+        "UPDATE reservation_analytics.journeys \
+         SET last_activity_at=now()-interval '31 minutes' WHERE journey_id=$1",
+    )
+    .bind(abandoned_journey_id)
+    .execute(&pool)
+    .await
+    .expect("journey inactivity can be controlled in the test database");
+    let (status, screen): (String, String) = sqlx::query_as(
+        "SELECT status,last_screen FROM reservation_analytics.journey_outcomes WHERE journey_id=$1",
+    )
+    .bind(abandoned_journey_id)
+    .fetch_one(&pool)
+    .await
+    .expect("inactive journey has an abandonment outcome");
+    assert_eq!(status, "ABANDONED");
+    assert_eq!(screen, "checkout");
+
+    let (status, invalid_journey_event) = call(
+        &router,
+        Method::POST,
+        "/api/reservation-journeys/events",
+        Some(json!({
+            "journeyId":Uuid::new_v4(), "sequence":1, "eventType":"started", "screen":"checkout"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        invalid_journey_event["code"],
+        "invalid_reservation_journey_event"
+    );
+
+    let (status, unstarted_journey_event) = call(
+        &router,
+        Method::POST,
+        "/api/reservation-journeys/events",
+        Some(json!({
+            "journeyId":Uuid::new_v4(), "sequence":2, "eventType":"screen_viewed", "screen":"checkout"
+        })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(
+        unstarted_journey_event["code"],
+        "reservation_journey_not_started"
+    );
 
     let (status, replay) = call(
         &router,

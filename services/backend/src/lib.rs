@@ -1,5 +1,6 @@
 mod errors;
 mod hotel;
+mod journeys;
 mod models;
 mod payments;
 mod rates;
@@ -60,6 +61,7 @@ pub fn app(state: AppState) -> Router {
         .route("/api/hotels/{id}", get(hotel::find_hotel))
         .route("/api/rates/quote", get(rates::quote))
         .route("/api/payments", post(payments::charge))
+        .route("/api/reservation-journeys/events", post(journeys::record))
         .route(
             "/api/payments/{reservation_id}/refund",
             put(payments::refund),
@@ -105,6 +107,7 @@ pub async fn initialize(pool: &PgPool) -> Result<(), sqlx::Error> {
         include_str!("../schema/02_rates.sql"),
         include_str!("../schema/03_payments.sql"),
         include_str!("../schema/04_reservations.sql"),
+        include_str!("../schema/05_reservation_analytics.sql"),
     ] {
         sqlx::raw_sql(schema).execute(pool).await?;
     }
